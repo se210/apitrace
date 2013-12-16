@@ -88,10 +88,106 @@ bool singleThread = false;
 unsigned frameNo = 0;
 unsigned callNo = 0;
 
+/* SJC Added */
+class Statistics
+{
+public:
+    Statistics();
+    unsigned min(){return minStat;}
+    unsigned max(){return maxStat;}
+    unsigned tot(){return totalStat;}
+    double avg(){return (totalStat/(double)nFrames);}
+    Statistics & operator+=(const unsigned& rhs);
+    Statistics & operator++();
+    Statistics operator++(int);
+    void frameComplete();
+private:
+    unsigned nFrames;
+    unsigned fStat;
+    unsigned minStat;
+    unsigned maxStat;
+    unsigned totalStat;
+};
+
+Statistics::Statistics()
+{
+    nFrames = 0;
+    fStat = 0;
+    minStat = UINT_MAX;
+    maxStat = 0;
+    totalStat = 0;
+}
+
+Statistics & Statistics::operator+=(const unsigned& rhs)
+{
+    fStat += rhs;
+    return (*this);
+}
+
+Statistics & Statistics::operator++()
+{
+    // std::cout << "inc: " << fStat;
+    fStat++;
+    // std::cout << " " << fStat <<std::endl;
+    return (*this);
+}
+
+Statistics Statistics::operator++(int)
+{
+    Statistics result(*this);
+    ++(*this);
+    return result;
+}
+
+void Statistics::frameComplete()
+{
+    nFrames++;
+    if(fStat < minStat)
+        minStat = fStat;
+    if(fStat > maxStat)
+        maxStat = fStat;
+    totalStat += fStat;
+    fStat = 0;
+}
+
+Statistics nCalls;
+Statistics nRenderCalls;
+Statistics texUploads;
+Statistics nTriangles;
+
+void calcStatistics(trace::Call &call) {
+    /* Count the total number of calls */
+    nCalls++;
+
+    /* Count the rendering calls */
+    if(call.flags & trace::CALL_FLAG_RENDER)
+        nRenderCalls++;
+
+    /* Calculate the uploaded texel size */
+    const char* funcName = call.name();
+    if(!strcmp(funcName,"glTexImage2D"))
+    {
+        unsigned width = call.arg(3).toUInt();
+        unsigned height = call.arg(4).toUInt();
+        texUploads += width*height;
+    }
+    else if (!strcmp(funcName,"glTexSubImage2D"))
+    {
+        unsigned width = call.arg(4).toUInt();
+        unsigned height = call.arg(5).toUInt();
+        texUploads += width*height;
+    }
+}
+
 
 void
 frameComplete(trace::Call &call) {
     ++frameNo;
+
+    nCalls.frameComplete();
+    nRenderCalls.frameComplete();
+    texUploads.frameComplete();
+    nTriangles.frameComplete();
 }
 
 
@@ -169,6 +265,7 @@ retraceCall(trace::Call *call) {
     }
 
     callNo = call->no;
+    calcStatistics(*call);
     retracer.retrace(*call);
 
     if (doSnapshot && !swapRenderTarget)
@@ -530,6 +627,36 @@ mainLoop() {
             "Rendered " << frameNo << " frames"
             " in " <<  timeInterval << " secs,"
             " average of " << (frameNo/timeInterval) << " fps\n";
+
+        std::cout << std::endl;
+        std::cout <<
+            "Total number of calls: " << nCalls.tot() << std::endl;
+        std::cout <<
+            "Average number of calls: " << nCalls.avg() << std::endl;
+        std::cout <<
+            "Minimum number of calls: " << nCalls.min() << std::endl;
+        std::cout <<
+            "Maximum number of calls: " << nCalls.max() << std::endl;
+
+        std::cout << std::endl;
+        std::cout <<
+            "Total number of render calls: " << nRenderCalls.tot() << std::endl;
+        std::cout <<
+            "Average number of render calls: " << nRenderCalls.avg() << std::endl;
+        std::cout <<
+            "Minimum number of render calls: " << nRenderCalls.min() << std::endl;
+        std::cout <<
+            "Maximum number of render calls: " << nRenderCalls.max() << std::endl;
+
+        std::cout << std::endl;
+        std::cout <<
+            "Total texel uploads: " << texUploads.tot() << std::endl;
+        std::cout <<
+            "Average texel uploads: " << texUploads.avg() << std::endl;
+        std::cout <<
+            "Minimum texel uploads: " << texUploads.min() << std::endl;
+        std::cout <<
+            "Maximum texel uploads: " << texUploads.max() << std::endl;
     }
 
     if (waitOnFinish) {
