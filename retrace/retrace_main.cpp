@@ -43,6 +43,9 @@
 #include "trace_option.hpp"
 #include "retrace.hpp"
 
+#include <GLES2/gl2.h>
+#include "trace_model.hpp"
+
 
 static bool waitOnFinish = false;
 static bool loopOnFinish = false;
@@ -126,9 +129,7 @@ Statistics & Statistics::operator+=(const unsigned& rhs)
 
 Statistics & Statistics::operator++()
 {
-    // std::cout << "inc: " << fStat;
     fStat++;
-    // std::cout << " " << fStat <<std::endl;
     return (*this);
 }
 
@@ -176,6 +177,64 @@ void calcStatistics(trace::Call &call) {
         unsigned width = call.arg(4).toUInt();
         unsigned height = call.arg(5).toUInt();
         texUploads += width*height;
+    }
+
+    /* Count the number of triangles */
+    if(call.flags & trace::CALL_FLAG_RENDER)
+    {
+        // std::cout << funcName << std::endl;
+        const trace::FunctionSig* sig = call.sig;
+        unsigned nargs = sig->num_args;
+
+        /* See if it has both 'count' and 'mode' in its arguments */
+        int midx = -1;
+        int cidx = -1;
+        for(int i=0; i<nargs; i++)
+        {
+            if(!strcmp(sig->arg_names[i], "mode"))
+            {
+                midx = i;
+            }
+            else if(!strcmp(sig->arg_names[i], "count"))
+            {
+                cidx = i;
+            }
+        }
+
+        if( midx >= 0 && cidx >= 0)
+        {
+            int mode = call.arg(midx).toSInt();
+            int count = call.arg(cidx).toSInt();
+
+            switch(mode)
+            {
+                case GL_POINTS:
+                    count = count * 2;
+                    break;
+                case GL_LINES:
+                    count = count;
+                    break;
+                case GL_LINE_LOOP:
+                    count = count * 2 + 2;
+                    break;
+                case GL_LINE_STRIP:
+                    count = count * 2;
+                    break;
+                case GL_TRIANGLES:
+                    count = count / 3;
+                    break;
+                case GL_TRIANGLE_STRIP:
+                    count = count - 2;
+                    break;
+                case GL_TRIANGLE_FAN:
+                    count = count - 2;
+                    break;
+                default:
+                    break;
+            }
+
+            nTriangles += count;
+        }
     }
 }
 
@@ -657,6 +716,16 @@ mainLoop() {
             "Minimum texel uploads: " << texUploads.min() << std::endl;
         std::cout <<
             "Maximum texel uploads: " << texUploads.max() << std::endl;
+
+        std::cout << std::endl;
+        std::cout <<
+            "Total number of trianges: " << nTriangles.tot() << std::endl;
+        std::cout <<
+            "Average number of trianges: " << nTriangles.avg() << std::endl;
+        std::cout <<
+            "Minimum number of trianges: " << nTriangles.min() << std::endl;
+        std::cout <<
+            "Maximum number of trianges: " << nTriangles.max() << std::endl;
     }
 
     if (waitOnFinish) {
