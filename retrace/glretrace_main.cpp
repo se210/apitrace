@@ -85,7 +85,7 @@ void
 checkGlError(trace::Call &call) {
     GLenum error = glGetError();
     while (error != GL_NO_ERROR) {
-        std::ostream & os = retrace::warning(call);
+        /*std::ostream & os = retrace::warning(call);
 
         os << "glGetError(";
         os << call.name();
@@ -120,7 +120,7 @@ checkGlError(trace::Call &call) {
             os << error;
             break;
         }
-        os << "\n";
+        os << "\n";*/
     
         error = glGetError();
     }
@@ -291,7 +291,7 @@ initContext() {
     if (retrace::profilingGpuTimes) {
         if (!supportsTimestamp && !supportsElapsed) {
             std::cout << "Error: Cannot run profile, GL_EXT_timer_query extension is not supported." << std::endl;
-            exit(-1);
+            // exit(-1);
         }
 
         GLint bits = 0;
@@ -299,14 +299,14 @@ initContext() {
 
         if (!bits) {
             std::cout << "Error: Cannot run profile, GL_QUERY_COUNTER_BITS == 0." << std::endl;
-            exit(-1);
+            // exit(-1);
         }
     }
 
     /* Check for occlusion query support */
     if (retrace::profilingPixelsDrawn && !supportsOcclusion) {
         std::cout << "Error: Cannot run profile, GL_ARB_occlusion_query extension is not supported." << std::endl;
-        exit(-1);
+        // exit(-1);
     }
 
     /* Setup debug message call back */
