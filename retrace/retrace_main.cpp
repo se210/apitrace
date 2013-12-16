@@ -155,6 +155,7 @@ Statistics nCalls;
 Statistics nRenderCalls;
 Statistics texUploads;
 Statistics nTriangles;
+Statistics nVertices;
 
 void calcStatistics(trace::Call &call) {
     /* Count the total number of calls */
@@ -179,14 +180,14 @@ void calcStatistics(trace::Call &call) {
         texUploads += width*height;
     }
 
-    /* Count the number of triangles */
+    /* Count the number of vertices and triangles */
     if(call.flags & trace::CALL_FLAG_RENDER)
     {
         // std::cout << funcName << std::endl;
         const trace::FunctionSig* sig = call.sig;
         unsigned nargs = sig->num_args;
 
-        /* See if it has both 'count' and 'mode' in its arguments */
+        /* See if it has 'count' and/or 'mode' in its arguments */
         int midx = -1;
         int cidx = -1;
         for(int i=0; i<nargs; i++)
@@ -201,39 +202,44 @@ void calcStatistics(trace::Call &call) {
             }
         }
 
-        if( midx >= 0 && cidx >= 0)
+        if(cidx >= 0)
         {
-            int mode = call.arg(midx).toSInt();
             int count = call.arg(cidx).toSInt();
+            nVertices += count;
 
-            switch(mode)
+            if(midx >= 0)
             {
-                case GL_POINTS:
-                    count = count * 2;
-                    break;
-                case GL_LINES:
-                    count = count;
-                    break;
-                case GL_LINE_LOOP:
-                    count = count * 2 + 2;
-                    break;
-                case GL_LINE_STRIP:
-                    count = count * 2;
-                    break;
-                case GL_TRIANGLES:
-                    count = count / 3;
-                    break;
-                case GL_TRIANGLE_STRIP:
-                    count = count - 2;
-                    break;
-                case GL_TRIANGLE_FAN:
-                    count = count - 2;
-                    break;
-                default:
-                    break;
-            }
+                int mode = call.arg(midx).toSInt();
 
-            nTriangles += count;
+                switch(mode)
+                {
+                    case GL_POINTS:
+                        count = count * 2;
+                        break;
+                    case GL_LINES:
+                        count = count;
+                        break;
+                    case GL_LINE_LOOP:
+                        count = count * 2 + 2;
+                        break;
+                    case GL_LINE_STRIP:
+                        count = count * 2;
+                        break;
+                    case GL_TRIANGLES:
+                        count = count / 3;
+                        break;
+                    case GL_TRIANGLE_STRIP:
+                        count = count - 2;
+                        break;
+                    case GL_TRIANGLE_FAN:
+                        count = count - 2;
+                        break;
+                    default:
+                        break;
+                }
+
+                nTriangles += count;
+            }
         }
     }
 }
@@ -247,6 +253,7 @@ frameComplete(trace::Call &call) {
     nRenderCalls.frameComplete();
     texUploads.frameComplete();
     nTriangles.frameComplete();
+    nVertices.frameComplete();
 }
 
 
@@ -719,13 +726,23 @@ mainLoop() {
 
         std::cout << std::endl;
         std::cout <<
-            "Total number of trianges: " << nTriangles.tot() << std::endl;
+            "Total number of triangles: " << nTriangles.tot() << std::endl;
         std::cout <<
-            "Average number of trianges: " << nTriangles.avg() << std::endl;
+            "Average number of triangles: " << nTriangles.avg() << std::endl;
         std::cout <<
-            "Minimum number of trianges: " << nTriangles.min() << std::endl;
+            "Minimum number of triangles: " << nTriangles.min() << std::endl;
         std::cout <<
-            "Maximum number of trianges: " << nTriangles.max() << std::endl;
+            "Maximum number of triangles: " << nTriangles.max() << std::endl;
+
+        std::cout << std::endl;
+        std::cout <<
+            "Total number of vertices: " << nVertices.tot() << std::endl;
+        std::cout <<
+            "Average number of vertices: " << nVertices.avg() << std::endl;
+        std::cout <<
+            "Minimum number of vertices: " << nVertices.min() << std::endl;
+        std::cout <<
+            "Maximum number of vertices: " << nVertices.max() << std::endl;
     }
 
     if (waitOnFinish) {
