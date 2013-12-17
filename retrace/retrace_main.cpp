@@ -44,6 +44,7 @@
 #include "retrace.hpp"
 
 #include <GLES2/gl2.h>
+#include <fstream>
 #include "trace_model.hpp"
 
 
@@ -95,7 +96,8 @@ unsigned callNo = 0;
 class Statistics
 {
 public:
-    Statistics();
+    Statistics(const char* filename);
+    ~Statistics();
     unsigned min(){return minStat;}
     unsigned max(){return maxStat;}
     unsigned tot(){return totalStat;}
@@ -110,15 +112,22 @@ private:
     unsigned minStat;
     unsigned maxStat;
     unsigned totalStat;
+    std::ofstream *oFile;
 };
 
-Statistics::Statistics()
+Statistics::Statistics(const char* filename)
 {
     nFrames = 0;
     fStat = 0;
     minStat = UINT_MAX;
     maxStat = 0;
     totalStat = 0;
+    oFile = new std::ofstream(filename, std::ofstream::out);
+}
+
+Statistics::~Statistics()
+{
+    oFile->close();
 }
 
 Statistics & Statistics::operator+=(const unsigned& rhs)
@@ -148,22 +157,23 @@ void Statistics::frameComplete()
     if(fStat > maxStat)
         maxStat = fStat;
     totalStat += fStat;
+    (*oFile) << fStat << std::endl;
     fStat = 0;
 }
 
-Statistics nCalls;
-Statistics nRenderCalls;
-Statistics texUploads;
-Statistics nTriangles;
-Statistics nVertices;
+Statistics nCalls("nCalls.txt");
+Statistics nRenderCalls("nRenderCalls.txt");
+Statistics texUploads("texUploads.txt");
+Statistics nTriangles("nTriangles.txt");
+Statistics nVertices("nVertices.txt");
 
 void calcStatistics(trace::Call &call) {
     /* Count the total number of calls */
-    nCalls++;
+    nCalls += 1;
 
     /* Count the rendering calls */
     if(call.flags & trace::CALL_FLAG_RENDER)
-        nRenderCalls++;
+        nRenderCalls += 1;
 
     /* Calculate the uploaded texel size */
     const char* funcName = call.name();
